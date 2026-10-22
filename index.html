@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="地域の店舗候補を探して営業リストを作る無料の試作ツール">
+  <title>営業先リストメーカー</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#64748b; --line:#dbe2ea; --paper:#fff; --bg:#f4f7fb; --accent:#2457d6; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    header { background:#13213b; color:white; padding:22px max(18px,calc((100vw - 1200px)/2)); }
+    header h1 { margin:0 0 5px; font-size:clamp(1.35rem,3vw,1.9rem); }
+    header p { margin:0; color:#d8e2f4; }
+    main { max-width:1200px; margin:22px auto; padding:0 16px 44px; }
+    .notice { padding:12px 14px; border:1px solid #f0d69b; background:#fff8e6; border-radius:12px; margin-bottom:16px; font-size:.92rem; }
+    .layout { display:grid; grid-template-columns: minmax(290px,360px) minmax(0,1fr); gap:16px; align-items:start; }
+    .panel { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 2px 8px #15213a08; }
+    h2 { margin:0 0 12px; font-size:1.05rem; }
+    label { display:block; font-weight:650; margin:12px 0 5px; }
+    input[type="text"], input[type="url"], select { width:100%; min-height:40px; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; font:inherit; background:white; color:var(--ink); }
+    input[type="checkbox"] { accent-color:var(--accent); }
+    .checks { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    .checks label { display:flex; align-items:center; gap:7px; margin:0; font-weight:500; }
+    button { border:0; border-radius:9px; padding:10px 13px; background:var(--accent); color:white; font:inherit; font-weight:700; cursor:pointer; }
+    button:disabled { opacity:.55; cursor:wait; }
+    button.secondary { background:#e8edf5; color:#1e293b; }
+    button.danger { background:#fee2e2; color:#991b1b; }
+    .btnrow { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .help { color:var(--muted); font-size:.86rem; margin:5px 0; }
+    #map { height:390px; width:100%; border-radius:10px; border:1px solid var(--line); }
+    .maptools { display:flex; gap:8px; margin:10px 0 14px; }
+    .maptools input { flex:1; min-width:0; }
+    .statusline { color:var(--muted); font-size:.9rem; margin:10px 0; white-space:pre-wrap; }
+    .tablewrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
+    table { border-collapse:collapse; width:100%; min-width:850px; background:white; }
+    th,td { text-align:left; vertical-align:top; padding:10px; border-bottom:1px solid #e8edf3; }
+    th { background:#f8fafc; font-size:.84rem; position:sticky; top:0; z-index:1; }
+    td { font-size:.9rem; }
+    tr:last-child td { border-bottom:0; }
+    a { color:#1748b8; overflow-wrap:anywhere; }
+    .name { font-weight:750; }
+    .smallinput { min-width:155px; }
+    .statusselect { min-width:120px; }
+    .empty { padding:24px; text-align:center; color:var(--muted); }
+    footer { color:var(--muted); font-size:.84rem; margin-top:18px; }
+    .count { display:inline-block; background:#e8efff; color:#173f9f; border-radius:999px; padding:3px 9px; font-size:.85rem; font-weight:750; }
+    @media (max-width:850px) { .layout { grid-template-columns:1fr; } #map { height:330px; } }
+  </style>
+</head>
+<body>
+<header>
+  <h1>営業先リストメーカー</h1>
+  <p>地図から店舗候補を探し、問い合わせ先と営業状況を整理する無料の試作版</p>
+</header>
+<main>
+  <div class="notice">
+    <strong>試作版の注意：</strong> OpenStreetMapに登録された情報だけを検索します。掲載漏れ・古い情報・公式サイトURLの欠落があります。問い合わせページは自動で巡回せず、見つけたURLを手動で登録してください。連絡前に店舗の公式情報と営業受付方針を確認しましょう。
+  </div>
+  <div class="layout">
+    <section class="panel">
+      <h2>1. 検索条件</h2>
+      <label for="place">住所・地名から中心地点を探す</label>
+      <div class="maptools">
+        <input id="place" type="text" placeholder="例：大阪府八尾市 / 駅名">
+        <button id="geocodeBtn" type="button">検索</button>
+      </div>
+      <p class="help">地図をクリックして中心地点を指定することもできます。</p>
+      <label>検索半径：<span id="radiusLabel">5 km</span></label>
+      <input id="radius" type="range" min="1" max="5" step="1" value="5" style="width:100%">
+      <div class="help">半径は最大5km。円の中心は地図上のピンです。</div>
+      <label>業種</label>
+      <div class="checks">
+        <label><input type="checkbox" name="category" value="food" checked> 飲食店・カフェ</label>
+        <label><input type="checkbox" name="category" value="beauty" checked> 美容室・美容</label>
+        <label><input type="checkbox" name="category" value="health" checked> 整体・施術系</label>
+        <label><input type="checkbox" name="category" value="other"> その他の店舗</label>
+      </div>
+      <div class="btnrow">
+        <button id="searchBtn" type="button">この範囲のお店を検索</button>
+        <button id="exportBtn" class="secondary" type="button">CSV出力</button>
+      </div>
+      <p class="help">検索はボタンを押したときだけ実行します。公開APIの混雑時は失敗する場合があります。</p>
+      <div id="message" class="statusline" role="status" aria-live="polite">地図で地点を選び、検索してください。</div>
+    </section>
+    <section class="panel">
+      <h2>2. 検索範囲</h2>
+      <div id="map" aria-label="検索中心地点を選ぶ地図"></div>
+      <p class="help">地図データ © OpenStreetMap contributors。地図上をクリックすると検索中心が移動します。</p>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <h2 style="margin:0">3. 営業候補リスト</h2>
+      <span class="count" id="count">0 件</span>
+    </div>
+    <p class="help">問い合わせURLと対応状況はこのブラウザに保存されます。別の端末・ブラウザとは同期されません。</p>
+    <div id="results" class="tablewrap" style="margin-top:12px">
+      <div class="empty">まだ検索結果がありません。</div>
+    </div>
+    <div class="btnrow">
+      <button id="exportBtn2" class="secondary" type="button">表示中の候補をCSV出力</button>
+      <button id="clearBtn" class="danger" type="button">保存した営業データを削除</button>
+    </div>
+  </section>
+  <footer>
+    データ取得元：OpenStreetMap contributors / Overpass API。データの正確性・完全性は保証されません。<a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noopener">Nominatim利用ポリシー</a> と <a href="https://operations.osmfoundation.org/policies/tiles/" target="_blank" rel="noopener">地図タイル利用ポリシー</a> を確認し、利用条件・帰属表示を守ってください。大量・連続検索は避けてください。
+  </footer>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(() => {
+  "use strict";
+  const STORAGE_KEY = "leadFinderV1";
+  const CENTER_KEY = "leadFinderCenterV1";
+  const $ = (id) => document.getElementById(id);
+  let center = { lat: 35.6812, lon: 139.7671 }; // 初期表示：東京駅付近のサンプル地点。地図上で変更できます。
+  let marker, circle;
+  let leads = loadLeads();
+  let lastIds = [];
+
+  const map = L.map("map").setView([center.lat, center.lon], 13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'
+  }).addTo(map);
+  marker = L.marker([center.lat, center.lon]).addTo(map).bindPopup("検索の中心地点");
+  circle = L.circle([center.lat, center.lon], { radius: 5000, color: "#2457d6", fillColor: "#2457d6", fillOpacity: 0.08 }).addTo(map);
+
+  try {
+    const savedCenter = JSON.parse(localStorage.getItem(CENTER_KEY) || "null");
+    if (savedCenter && Number.isFinite(savedCenter.lat) && Number.isFinite(savedCenter.lon)) setCenter(savedCenter.lat, savedCenter.lon, false);
+  } catch (_) {}
+  map.on("click", (e) => setCenter(e.latlng.lat, e.latlng.lng, true));
+  $("radius").addEventListener("input", () => {
+    $("radiusLabel").textContent = $("radius").value + " km";
+    circle.setRadius(Number($("radius").value) * 1000);
+  });
+  $("geocodeBtn").addEventListener("click", geocodePlace);
+  $("place").addEventListener("keydown", (e) => { if (e.key === "Enter") geocodePlace(); });
+  $("searchBtn").addEventListener("click", searchBusinesses);
+  $("exportBtn").addEventListener("click", exportCsv);
+  $("exportBtn2").addEventListener("click", exportCsv);
+  $("clearBtn").addEventListener("click", clearData);
+  renderTable();
+
+  function setCenter(lat, lon, save = true) {
+    center = { lat: Number(lat), lon: Number(lon) };
+    marker.setLatLng([center.lat, center.lon]);
+    circle.setLatLng([center.lat, center.lon]);
+    circle.setRadius(Number($("radius").value) * 1000);
+    if (save) localStorage.setItem(CENTER_KEY, JSON.stringify(center));
+  }
+  function loadLeads() {
+    try {
+      const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      return Array.isArray(value) ? value : [];
+    } catch (_) { return []; }
+  }
+  function saveLeads() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(leads)); }
+    catch (_) { setMessage("ブラウザへの保存に失敗しました。プライベートブラウズや容量設定をご確認ください。"); }
+  }
+  function setMessage(message) { $("message").textContent = message; }
+  function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+  function normUrl(value) {
+    if (!value) return "";
+    let s = String(value).trim();
+    if (!/^https?:\/\//i.test(s)) s = "https://" + s;
+    try { const u = new URL(s); return ["http:", "https:"].includes(u.protocol) ? u.href : ""; }
+    catch (_) { return ""; }
+  }
+  async function geocodePlace() {
+    const q = $("place").value.trim();
+    if (!q) { setMessage("住所や地名を入力してください。"); return; }
+    $("geocodeBtn").disabled = true;
+    setMessage("地名を検索中…");
+    try {
+      // Nominatim is called only after a user action; no autocomplete or repeated background requests.
+      const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(q);
+      const res = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error("地名検索サービスから応答がありません (HTTP " + res.status + ")");
+      const data = await res.json();
+      if (!data.length) { setMessage("地点が見つかりませんでした。別の地名を試すか、地図をクリックしてください。"); return; }
+      const lat = Number(data[0].lat), lon = Number(data[0].lon);
+      setCenter(lat, lon);
+      map.setView([lat, lon], 14);
+      setMessage("中心地点を設定しました。円の範囲を確認して検索してください。");
+    } catch (err) {
+      setMessage("地名検索に失敗しました: " + err.message + "\n地図を直接クリックして地点を指定できます。");
+    } finally { $("geocodeBtn").disabled = false; }
+  }
+  function selectedCategories() {
+    return [...document.querySelectorAll('input[name="category"]:checked')].map(el => el.value);
+  }
+  function queryFor(lat, lon, radius, categories) {
+    const parts = [];
+    const around = `(around:${radius},${lat},${lon})`;
+    if (categories.includes("food")) {
+      parts.push(`nwr${around}["amenity"~"^(restaurant|cafe|fast_food|food_court|ice_cream)$"];`);
+      parts.push(`nwr${around}["shop"~"^(bakery|confectionery|deli|tea|coffee)$"];`);
+    }
+    if (categories.includes("beauty")) {
+      parts.push(`nwr${around}["shop"~"^(hairdresser|beauty|barber|massage)$"];`);
+    }
+    if (categories.includes("health")) {
+      parts.push(`nwr${around}["healthcare"~"^(physiotherapist|osteopath|chiropractor|massage)$"];`);
+      parts.push(`nwr${around}["amenity"="clinic"];`);
+    }
+    if (categories.includes("other")) {
+      parts.push(`nwr${around}["shop"]["name"];`);
+      parts.push(`nwr${around}["craft"]["name"];`);
+    }
+    return `[out:json][timeout:35];(${parts.join("")});out center tags;`;
+  }
+  function getTag(tags, keys) {
+    for (const key of keys) if (tags && tags[key]) return String(tags[key]).trim();
+    return "";
+  }
+  function getAddress(tags) {
+    const full = getTag(tags, ["addr:full"]);
+    if (full) return full;
+    const bits = [
+      getTag(tags, ["addr:postcode"]),
+      getTag(tags, ["addr:province", "addr:state"]),
+      getTag(tags, ["addr:city", "addr:town", "addr:village", "addr:suburb", "addr:district"]),
+      getTag(tags, ["addr:quarter", "addr:neighbourhood"]),
+      getTag(tags, ["addr:street"]),
+      getTag(tags, ["addr:housenumber", "addr:unit"])
+    ].filter(Boolean);
+    return bits.join(" ") || "住所情報なし";
+  }
+  function getCategory(tags) {
+    const shop = tags.shop || "";
+    const amenity = tags.amenity || "";
+    const healthcare = tags.healthcare || "";
+    if (["restaurant","cafe","fast_food","food_court","ice_cream"].includes(amenity) || ["bakery","confectionery","deli","tea","coffee"].includes(shop)) return "飲食";
+    if (["hairdresser","beauty","barber","massage"].includes(shop)) return "美容";
+    if (healthcare || amenity === "clinic") return "整体・施術/医療";
+    return shop ? "店舗" : (tags.craft ? "工房・職人" : "その他");
+  }
+  function stableId(el) { return String(el.type) + "/" + String(el.id); }
+  async function searchBusinesses() {
+    const cats = selectedCategories();
+    if (!cats.length) { setMessage("業種を1つ以上選んでください。"); return; }
+    const radius = Number($("radius").value) * 1000;
+    const query = queryFor(center.lat, center.lon, radius, cats);
+    $("searchBtn").disabled = true;
+    setMessage("店舗候補を検索中… 公開APIの応答まで少し時間がかかる場合があります。");
+    try {
+      // One user-triggered Overpass request per search. Public service: use sparingly.
+      const endpoint = "https://overpass-api.de/api/interpreter";
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: query });
+      if (!response.ok) throw new Error("検索APIから応答がありません (HTTP " + response.status + ")");
+      const data = await response.json();
+      const found = [];
+      for (const el of (data.elements || [])) {
+        const tags = el.tags || {};
+        const name = getTag(tags, ["name", "name:ja", "official_name"]);
+        if (!name) continue;
+        const id = stableId(el);
+        const lat = el.lat ?? el.center?.lat;
+        const lon = el.lon ?? el.center?.lon;
+        const website = normUrl(getTag(tags, ["website", "contact:website", "url"]));
+        const existing = leads.find(x => x.id === id);
+        found.push({
+          id, name, address: getAddress(tags),
+          website, phone: getTag(tags, ["phone", "contact:phone"]),
+          category: getCategory(tags), lat: lat ?? "", lon: lon ?? "",
+          contactUrl: existing?.contactUrl || "",
+          status: existing?.status || "未連絡",
+          notes: existing?.notes || "",
+          source: "OpenStreetMap"
+        });
+      }
+      const byId = new Map(leads.map(x => [x.id, x]));
+      found.forEach(item => {
+        const old = byId.get(item.id);
+        byId.set(item.id, old ? { ...old, ...item, contactUrl: old.contactUrl || item.contactUrl, status: old.status || item.status, notes: old.notes || item.notes } : item);
+      });
+      leads = [...byId.values()];
+      lastIds = found.map(x => x.id);
+      saveLeads();
+      renderTable(lastIds);
+      setMessage(`${found.length}件の候補が見つかりました（名称のある施設のみ）。\n見つからないお店や公式サイト未登録のお店もあります。連続検索は避けてください。`);
+      if (!found.length) setMessage("候補が見つかりませんでした。業種を増やす、半径を広げる、中心地点を変えるなどを試してください。");
+    } catch (err) {
+      setMessage("検索に失敗しました: " + err.message + "\n公開APIが混雑している可能性があります。少し時間を空けて再試行してください。");
+    } finally { $("searchBtn").disabled = false; }
+  }
+  function renderTable(ids = null) {
+    const shown = ids ? leads.filter(x => ids.includes(x.id)) : leads;
+    $("count").textContent = shown.length + " 件";
+    if (!shown.length) {
+      $("results").innerHTML = '<div class="empty">候補がありません。条件を選んで検索してください。</div>';
+      return;
+    }
+    const rows = shown.map(item => `<tr data-id="${esc(item.id)}">
+      <td><div class="name">${esc(item.name)}</div><div class="help">${esc(item.category)}</div>${item.phone ? `<div>${esc(item.phone)}</div>` : ""}</td>
+      <td>${esc(item.address)}</td>
+      <td>${item.website ? `<a href="${esc(item.website)}" target="_blank" rel="noopener noreferrer">公式サイト</a>` : '<span class="help">未登録</span>'}</td>
+      <td><input class="smallinput contact-input" type="url" placeholder="https://…" aria-label="${esc(item.name)}のお問い合わせURL" value="${esc(item.contactUrl)}"></td>
+      <td><select class="statusselect status-input" aria-label="${esc(item.name)}の対応状況">
+        ${["未連絡","連絡済み","返信あり","対象外","受注"].map(s => `<option${item.status===s?" selected":""}>${s}</option>`).join("")}
+      </select></td>
+      <td><input class="smallinput notes-input" type="text" placeholder="メモ" aria-label="${esc(item.name)}のメモ" value="${esc(item.notes || "")}"></td>
+    </tr>`).join("");
+    $("results").innerHTML = `<table><thead><tr><th>店舗名・業種</th><th>住所</th><th>公式サイト</th><th>お問い合わせURL（手入力）</th><th>対応状況</th><th>メモ</th></tr></thead><tbody>${rows}</tbody></table>`;
+    $("results").querySelectorAll("tbody tr").forEach(row => {
+      const id = row.dataset.id;
+      row.querySelector(".contact-input").addEventListener("change", e => updateLead(id, { contactUrl: normUrl(e.target.value) }));
+      row.querySelector(".status-input").addEventListener("change", e => updateLead(id, { status: e.target.value }));
+      row.querySelector(".notes-input").addEventListener("change", e => updateLead(id, { notes: e.target.value.trim() }));
+    });
+  }
+  function updateLead(id, changes) {
+    leads = leads.map(x => x.id === id ? { ...x, ...changes } : x);
+    saveLeads();
+  }
+  function exportCsv() {
+    const shown = lastIds.length ? leads.filter(x => lastIds.includes(x.id)) : leads;
+    if (!shown.length) { setMessage("CSVに出力する候補がありません。先に検索してください。"); return; }
+    const columns = [
+      ["店舗名","name"], ["業種","category"], ["住所","address"], ["公式サイトURL","website"],
+      ["電話番号","phone"], ["お問い合わせURL","contactUrl"], ["対応状況","status"], ["メモ","notes"],
+      ["緯度","lat"], ["経度","lon"], ["データ元","source"], ["OSM ID","id"]
+    ];
+    const csvCell = value => {
+      let s = String(value ?? "");
+      // Reduce spreadsheet formula injection risk for user-facing exports.
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return '"' + s.replace(/"/g, '""') + '"';
+    };
+    const csv = "\uFEFF" + [columns.map(c => csvCell(c[0])).join(","), ...shown.map(x => columns.map(c => csvCell(x[c[1]])).join(","))].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "営業候補リスト.csv"; document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+  function clearData() {
+    if (!confirm("保存した営業候補・問い合わせURL・対応状況をすべて削除します。この操作は取り消せません。続けますか？")) return;
+    leads = []; lastIds = []; saveLeads(); renderTable([]);
+    setMessage("保存データを削除しました。");
+  }
+})();
+</script>
+</body>
+</html>
