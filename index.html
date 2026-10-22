@@ -1,353 +1,182 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="地域の店舗候補を探して営業リストを作る無料の試作ツール">
-  <title>営業先リストメーカー</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <style>
-    :root { color-scheme: light; --ink:#172033; --muted:#64748b; --line:#dbe2ea; --paper:#fff; --bg:#f4f7fb; --accent:#2457d6; }
-    * { box-sizing:border-box; }
-    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
-    header { background:#13213b; color:white; padding:22px max(18px,calc((100vw - 1200px)/2)); }
-    header h1 { margin:0 0 5px; font-size:clamp(1.35rem,3vw,1.9rem); }
-    header p { margin:0; color:#d8e2f4; }
-    main { max-width:1200px; margin:22px auto; padding:0 16px 44px; }
-    .notice { padding:12px 14px; border:1px solid #f0d69b; background:#fff8e6; border-radius:12px; margin-bottom:16px; font-size:.92rem; }
-    .layout { display:grid; grid-template-columns: minmax(290px,360px) minmax(0,1fr); gap:16px; align-items:start; }
-    .panel { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 2px 8px #15213a08; }
-    h2 { margin:0 0 12px; font-size:1.05rem; }
-    label { display:block; font-weight:650; margin:12px 0 5px; }
-    input[type="text"], input[type="url"], select { width:100%; min-height:40px; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; font:inherit; background:white; color:var(--ink); }
-    input[type="checkbox"] { accent-color:var(--accent); }
-    .checks { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
-    .checks label { display:flex; align-items:center; gap:7px; margin:0; font-weight:500; }
-    button { border:0; border-radius:9px; padding:10px 13px; background:var(--accent); color:white; font:inherit; font-weight:700; cursor:pointer; }
-    button:disabled { opacity:.55; cursor:wait; }
-    button.secondary { background:#e8edf5; color:#1e293b; }
-    button.danger { background:#fee2e2; color:#991b1b; }
-    .btnrow { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
-    .help { color:var(--muted); font-size:.86rem; margin:5px 0; }
-    #map { height:390px; width:100%; border-radius:10px; border:1px solid var(--line); }
-    .maptools { display:flex; gap:8px; margin:10px 0 14px; }
-    .maptools input { flex:1; min-width:0; }
-    .statusline { color:var(--muted); font-size:.9rem; margin:10px 0; white-space:pre-wrap; }
-    .tablewrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
-    table { border-collapse:collapse; width:100%; min-width:850px; background:white; }
-    th,td { text-align:left; vertical-align:top; padding:10px; border-bottom:1px solid #e8edf3; }
-    th { background:#f8fafc; font-size:.84rem; position:sticky; top:0; z-index:1; }
-    td { font-size:.9rem; }
-    tr:last-child td { border-bottom:0; }
-    a { color:#1748b8; overflow-wrap:anywhere; }
-    .name { font-weight:750; }
-    .smallinput { min-width:155px; }
-    .statusselect { min-width:120px; }
-    .empty { padding:24px; text-align:center; color:var(--muted); }
-    footer { color:var(--muted); font-size:.84rem; margin-top:18px; }
-    .count { display:inline-block; background:#e8efff; color:#173f9f; border-radius:999px; padding:3px 9px; font-size:.85rem; font-weight:750; }
-    @media (max-width:850px) { .layout { grid-template-columns:1fr; } #map { height:330px; } }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>営業先リスト管理ツール</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#202733;background:#f5f7fa}
+*{box-sizing:border-box}body{margin:0}header{background:#182536;color:#fff;padding:18px 22px}header h1{margin:0;font-size:1.35rem}header p{margin:5px 0 0;color:#d7e1ec;font-size:.92rem}
+main{max-width:1250px;margin:18px auto;padding:0 14px;display:grid;gap:16px}
+.panel{background:#fff;border:1px solid #dce3eb;border-radius:14px;padding:16px;box-shadow:0 2px 8px #172b4d0a}
+h2{font-size:1.05rem;margin:0 0 12px}.muted{color:#637083;font-size:.88rem}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+label{display:block;font-size:.87rem;font-weight:650;margin-bottom:5px}input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font:inherit;background:#fff;color:#202733}textarea{min-height:72px;resize:vertical}
+button{border:0;border-radius:8px;padding:10px 13px;font:inherit;font-weight:700;cursor:pointer;background:#e6edf5;color:#203047}button.primary{background:#1769d2;color:white}button.danger{background:#fff0f0;color:#a32323}button.small{padding:6px 9px;font-size:.82rem}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.checks{display:flex;gap:12px;flex-wrap:wrap;margin:9px 0}.checks label{font-weight:500;margin:0;display:flex;align-items:center;gap:5px}.checks input{width:auto}
+#map{height:300px;border-radius:10px;border:1px solid #dce3eb;margin-top:12px}
+.formgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.wide{grid-column:1/-1}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px}.stat{background:#f0f5fb;padding:8px 12px;border-radius:9px;font-size:.9rem}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:10px 9px;border-bottom:1px solid #e6ebf1;vertical-align:top}th{background:#f5f7fa;white-space:nowrap}td a{overflow-wrap:anywhere}td .sub{color:#637083;font-size:.8rem;margin-top:3px}.rowbuttons{display:flex;gap:5px;flex-wrap:wrap}.tag{display:inline-block;background:#edf3fb;padding:3px 7px;border-radius:6px;font-size:.78rem}
+#notice{margin-top:10px;font-size:.9rem;color:#334155}.hidden{display:none!important}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}header{padding:16px}}
+@media(max-width:520px){.grid,.formgrid{grid-template-columns:1fr}.wide{grid-column:auto}#map{height:240px}}
+</style>
 </head>
 <body>
-<header>
-  <h1>営業先リストメーカー</h1>
-  <p>地図から店舗候補を探し、問い合わせ先と営業状況を整理する無料の試作版</p>
-</header>
+<header><h1>営業先リスト管理ツール</h1><p>地図から検索 ＋ 手動登録。検索しても登録済みの営業先は消えません。</p></header>
 <main>
-  <div class="notice">
-    <strong>試作版の注意：</strong> OpenStreetMapに登録された情報だけを検索します。掲載漏れ・古い情報・公式サイトURLの欠落があります。問い合わせページは自動で巡回せず、見つけたURLを手動で登録してください。連絡前に店舗の公式情報と営業受付方針を確認しましょう。
-  </div>
-  <div class="layout">
-    <section class="panel">
-      <h2>1. 検索条件</h2>
-      <label for="place">住所・地名から中心地点を探す</label>
-      <div class="maptools">
-        <input id="place" type="text" placeholder="例：大阪府八尾市 / 駅名">
-        <button id="geocodeBtn" type="button">検索</button>
-      </div>
-      <p class="help">地図をクリックして中心地点を指定することもできます。</p>
-      <label>検索半径：<span id="radiusLabel">5 km</span></label>
-      <input id="radius" type="range" min="1" max="5" step="1" value="5" style="width:100%">
-      <div class="help">半径は最大5km。円の中心は地図上のピンです。</div>
-      <label>業種</label>
-      <div class="checks">
-        <label><input type="checkbox" name="category" value="food" checked> 飲食店・カフェ</label>
-        <label><input type="checkbox" name="category" value="beauty" checked> 美容室・美容</label>
-        <label><input type="checkbox" name="category" value="health" checked> 整体・施術系</label>
-        <label><input type="checkbox" name="category" value="other"> その他の店舗</label>
-      </div>
-      <div class="btnrow">
-        <button id="searchBtn" type="button">この範囲のお店を検索</button>
-        <button id="exportBtn" class="secondary" type="button">CSV出力</button>
-      </div>
-      <p class="help">検索はボタンを押したときだけ実行します。公開APIの混雑時は失敗する場合があります。</p>
-      <div id="message" class="statusline" role="status" aria-live="polite">地図で地点を選び、検索してください。</div>
-    </section>
-    <section class="panel">
-      <h2>2. 検索範囲</h2>
-      <div id="map" aria-label="検索中心地点を選ぶ地図"></div>
-      <p class="help">地図データ © OpenStreetMap contributors。地図上をクリックすると検索中心が移動します。</p>
-    </section>
-  </div>
+<section class="panel">
+<h2>① エリアを指定して営業先を検索</h2>
+<p class="muted">地図をクリックして中心を指定するか、場所名・住所で検索できます。検索結果は既存リストに追加され、手動登録した営業先も保持されます。</p>
+<div class="grid">
+<div><label for="place">場所名・住所</label><input id="place" placeholder="例：大阪府八尾市"></div>
+<div><label for="radius">検索半径</label><select id="radius"><option value="1">1 km</option><option value="2">2 km</option><option value="3">3 km</option><option value="4">4 km</option><option value="5" selected>5 km</option></select></div>
+<div><label for="centerLat">中心 緯度</label><input id="centerLat" type="number" step="any" value="34.6268"></div>
+<div><label for="centerLon">中心 経度</label><input id="centerLon" type="number" step="any" value="135.6009"></div>
+</div>
+<div class="checks">
+<label><input type="checkbox" value="food" checked> 飲食店・カフェ</label>
+<label><input type="checkbox" value="beauty" checked> 美容・理容</label>
+<label><input type="checkbox" value="health"> 医療・整体など</label>
+<label><input type="checkbox" value="shop"> その他店舗</label>
+</div>
+<div class="actions"><button id="locate" class="primary">場所名・住所から中心を設定</button><button id="search" class="primary">営業先を検索＋</button><button id="export">CSVを書き出し</button></div>
+<div id="map"></div><div id="notice" role="status">地図をクリックして検索中心を変更できます。</div>
+</section>
 
-  <section class="panel" style="margin-top:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-      <h2 style="margin:0">3. 営業候補リスト</h2>
-      <span class="count" id="count">0 件</span>
-    </div>
-    <p class="help">問い合わせURLと対応状況はこのブラウザに保存されます。別の端末・ブラウザとは同期されません。</p>
-    <div id="results" class="tablewrap" style="margin-top:12px">
-      <div class="empty">まだ検索結果がありません。</div>
-    </div>
-    <div class="btnrow">
-      <button id="exportBtn2" class="secondary" type="button">表示中の候補をCSV出力</button>
-      <button id="clearBtn" class="danger" type="button">保存した営業データを削除</button>
-    </div>
-  </section>
-  <footer>
-    データ取得元：OpenStreetMap contributors / Overpass API。データの正確性・完全性は保証されません。<a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noopener">Nominatim利用ポリシー</a> と <a href="https://operations.osmfoundation.org/policies/tiles/" target="_blank" rel="noopener">地図タイル利用ポリシー</a> を確認し、利用条件・帰属表示を守ってください。大量・連続検索は避けてください。
-  </footer>
+<section class="panel" id="editor">
+<h2 id="editorTitle">② 営業先を手動で追加</h2>
+<p class="muted">検索結果にないお店・会社も自由に登録できます。編集ボタンから内容を更新できます。</p>
+<form id="leadForm">
+<input id="editId" type="hidden">
+<div class="formgrid">
+<div><label for="name">営業先名 *</label><input id="name" required placeholder="例：〇〇美容室"></div>
+<div><label for="category">業種</label><select id="category"><option>飲食店・カフェ</option><option>美容・理容</option><option>医療・整体</option><option>その他店舗</option><option>その他</option></select></div>
+<div><label for="status">営業状況</label><select id="status"><option>未連絡</option><option>連絡済み</option><option>返信あり</option><option>対象外</option><option>受注</option></select></div>
+<div><label for="address">住所</label><input id="address" placeholder="住所を入力"></div>
+<div><label for="website">公式サイトURL</label><input id="website" type="url" placeholder="https://..."></div>
+<div><label for="contact">お問い合わせページURL</label><input id="contact" type="url" placeholder="https://..."></div>
+<div><label for="phone">電話番号</label><input id="phone" placeholder="電話番号"></div>
+<div><label for="source">登録元</label><select id="source"><option>手動登録</option><option>地図検索</option></select></div>
+<div><label for="email">メール・SNSなど</label><input id="email" placeholder="任意"></div>
+<div class="wide"><label for="notes">メモ</label><textarea id="notes" placeholder="担当者、提案内容、連絡日など"></textarea></div>
+</div>
+<div class="actions"><button class="primary" type="submit" id="saveLead">営業先を追加</button><button type="button" id="cancelEdit" class="hidden">編集をキャンセル</button><button type="button" id="resetForm">入力をクリア</button></div>
+</form>
+</section>
+
+<section class="panel">
+<h2>③ 営業先リスト</h2>
+<div class="grid">
+<div><label for="filterText">名前・住所で絞り込み</label><input id="filterText" placeholder="キーワード"></div>
+<div><label for="filterStatus">営業状況で絞り込み</label><select id="filterStatus"><option value="">すべて</option><option>未連絡</option><option>連絡済み</option><option>返信あり</option><option>対象外</option><option>受注</option></select></div>
+<div><label for="filterSource">登録元で絞り込み</label><select id="filterSource"><option value="">すべて</option><option>手動登録</option><option>地図検索</option></select></div>
+<div><label for="sort">並び順</label><select id="sort"><option value="new">新しく追加した順</option><option value="name">名前順</option></select></div>
+</div>
+<div class="stats"><span class="stat" id="countAll">登録件数：0</span><span class="stat" id="countManual">手動登録：0</span><span class="stat" id="countSearch">検索登録：0</span></div>
+<div class="tablewrap"><table><thead><tr><th>営業先</th><th>サイト・連絡先</th><th>状況・メモ</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p class="muted">データはこのブラウザ内に保存されます。同じ端末・ブラウザで開いてください。別端末との自動同期はありません。</p>
+<div class="actions"><button id="exportBottom">CSVを書き出し</button><button id="clearAll" class="danger">リストを全削除</button></div>
+</section>
 </main>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (() => {
-  "use strict";
-  const STORAGE_KEY = "leadFinderV1";
-  const CENTER_KEY = "leadFinderCenterV1";
-  const $ = (id) => document.getElementById(id);
-  let center = { lat: 35.6812, lon: 139.7671 }; // 初期表示：東京駅付近のサンプル地点。地図上で変更できます。
-  let marker, circle;
-  let leads = loadLeads();
-  let lastIds = [];
-
-  const map = L.map("map").setView([center.lat, center.lon], 13);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'
-  }).addTo(map);
-  marker = L.marker([center.lat, center.lon]).addTo(map).bindPopup("検索の中心地点");
-  circle = L.circle([center.lat, center.lon], { radius: 5000, color: "#2457d6", fillColor: "#2457d6", fillOpacity: 0.08 }).addTo(map);
-
-  try {
-    const savedCenter = JSON.parse(localStorage.getItem(CENTER_KEY) || "null");
-    if (savedCenter && Number.isFinite(savedCenter.lat) && Number.isFinite(savedCenter.lon)) setCenter(savedCenter.lat, savedCenter.lon, false);
-  } catch (_) {}
-  map.on("click", (e) => setCenter(e.latlng.lat, e.latlng.lng, true));
-  $("radius").addEventListener("input", () => {
-    $("radiusLabel").textContent = $("radius").value + " km";
-    circle.setRadius(Number($("radius").value) * 1000);
-  });
-  $("geocodeBtn").addEventListener("click", geocodePlace);
-  $("place").addEventListener("keydown", (e) => { if (e.key === "Enter") geocodePlace(); });
-  $("searchBtn").addEventListener("click", searchBusinesses);
-  $("exportBtn").addEventListener("click", exportCsv);
-  $("exportBtn2").addEventListener("click", exportCsv);
-  $("clearBtn").addEventListener("click", clearData);
-  renderTable();
-
-  function setCenter(lat, lon, save = true) {
-    center = { lat: Number(lat), lon: Number(lon) };
-    marker.setLatLng([center.lat, center.lon]);
-    circle.setLatLng([center.lat, center.lon]);
-    circle.setRadius(Number($("radius").value) * 1000);
-    if (save) localStorage.setItem(CENTER_KEY, JSON.stringify(center));
-  }
-  function loadLeads() {
-    try {
-      const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      return Array.isArray(value) ? value : [];
-    } catch (_) { return []; }
-  }
-  function saveLeads() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(leads)); }
-    catch (_) { setMessage("ブラウザへの保存に失敗しました。プライベートブラウズや容量設定をご確認ください。"); }
-  }
-  function setMessage(message) { $("message").textContent = message; }
-  function esc(value) {
-    return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
-  }
-  function normUrl(value) {
-    if (!value) return "";
-    let s = String(value).trim();
-    if (!/^https?:\/\//i.test(s)) s = "https://" + s;
-    try { const u = new URL(s); return ["http:", "https:"].includes(u.protocol) ? u.href : ""; }
-    catch (_) { return ""; }
-  }
-  async function geocodePlace() {
-    const q = $("place").value.trim();
-    if (!q) { setMessage("住所や地名を入力してください。"); return; }
-    $("geocodeBtn").disabled = true;
-    setMessage("地名を検索中…");
-    try {
-      // Nominatim is called only after a user action; no autocomplete or repeated background requests.
-      const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(q);
-      const res = await fetch(url, { headers: { "Accept": "application/json" } });
-      if (!res.ok) throw new Error("地名検索サービスから応答がありません (HTTP " + res.status + ")");
-      const data = await res.json();
-      if (!data.length) { setMessage("地点が見つかりませんでした。別の地名を試すか、地図をクリックしてください。"); return; }
-      const lat = Number(data[0].lat), lon = Number(data[0].lon);
-      setCenter(lat, lon);
-      map.setView([lat, lon], 14);
-      setMessage("中心地点を設定しました。円の範囲を確認して検索してください。");
-    } catch (err) {
-      setMessage("地名検索に失敗しました: " + err.message + "\n地図を直接クリックして地点を指定できます。");
-    } finally { $("geocodeBtn").disabled = false; }
-  }
-  function selectedCategories() {
-    return [...document.querySelectorAll('input[name="category"]:checked')].map(el => el.value);
-  }
-  function queryFor(lat, lon, radius, categories) {
-    const parts = [];
-    const around = `(around:${radius},${lat},${lon})`;
-    if (categories.includes("food")) {
-      parts.push(`nwr${around}["amenity"~"^(restaurant|cafe|fast_food|food_court|ice_cream)$"];`);
-      parts.push(`nwr${around}["shop"~"^(bakery|confectionery|deli|tea|coffee)$"];`);
-    }
-    if (categories.includes("beauty")) {
-      parts.push(`nwr${around}["shop"~"^(hairdresser|beauty|barber|massage)$"];`);
-    }
-    if (categories.includes("health")) {
-      parts.push(`nwr${around}["healthcare"~"^(physiotherapist|osteopath|chiropractor|massage)$"];`);
-      parts.push(`nwr${around}["amenity"="clinic"];`);
-    }
-    if (categories.includes("other")) {
-      parts.push(`nwr${around}["shop"]["name"];`);
-      parts.push(`nwr${around}["craft"]["name"];`);
-    }
-    return `[out:json][timeout:35];(${parts.join("")});out center tags;`;
-  }
-  function getTag(tags, keys) {
-    for (const key of keys) if (tags && tags[key]) return String(tags[key]).trim();
-    return "";
-  }
-  function getAddress(tags) {
-    const full = getTag(tags, ["addr:full"]);
-    if (full) return full;
-    const bits = [
-      getTag(tags, ["addr:postcode"]),
-      getTag(tags, ["addr:province", "addr:state"]),
-      getTag(tags, ["addr:city", "addr:town", "addr:village", "addr:suburb", "addr:district"]),
-      getTag(tags, ["addr:quarter", "addr:neighbourhood"]),
-      getTag(tags, ["addr:street"]),
-      getTag(tags, ["addr:housenumber", "addr:unit"])
-    ].filter(Boolean);
-    return bits.join(" ") || "住所情報なし";
-  }
-  function getCategory(tags) {
-    const shop = tags.shop || "";
-    const amenity = tags.amenity || "";
-    const healthcare = tags.healthcare || "";
-    if (["restaurant","cafe","fast_food","food_court","ice_cream"].includes(amenity) || ["bakery","confectionery","deli","tea","coffee"].includes(shop)) return "飲食";
-    if (["hairdresser","beauty","barber","massage"].includes(shop)) return "美容";
-    if (healthcare || amenity === "clinic") return "整体・施術/医療";
-    return shop ? "店舗" : (tags.craft ? "工房・職人" : "その他");
-  }
-  function stableId(el) { return String(el.type) + "/" + String(el.id); }
-  async function searchBusinesses() {
-    const cats = selectedCategories();
-    if (!cats.length) { setMessage("業種を1つ以上選んでください。"); return; }
-    const radius = Number($("radius").value) * 1000;
-    const query = queryFor(center.lat, center.lon, radius, cats);
-    $("searchBtn").disabled = true;
-    setMessage("店舗候補を検索中… 公開APIの応答まで少し時間がかかる場合があります。");
-    try {
-      // One user-triggered Overpass request per search. Public service: use sparingly.
-      const endpoint = "https://overpass-api.de/api/interpreter";
-      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: query });
-      if (!response.ok) throw new Error("検索APIから応答がありません (HTTP " + response.status + ")");
-      const data = await response.json();
-      const found = [];
-      for (const el of (data.elements || [])) {
-        const tags = el.tags || {};
-        const name = getTag(tags, ["name", "name:ja", "official_name"]);
-        if (!name) continue;
-        const id = stableId(el);
-        const lat = el.lat ?? el.center?.lat;
-        const lon = el.lon ?? el.center?.lon;
-        const website = normUrl(getTag(tags, ["website", "contact:website", "url"]));
-        const existing = leads.find(x => x.id === id);
-        found.push({
-          id, name, address: getAddress(tags),
-          website, phone: getTag(tags, ["phone", "contact:phone"]),
-          category: getCategory(tags), lat: lat ?? "", lon: lon ?? "",
-          contactUrl: existing?.contactUrl || "",
-          status: existing?.status || "未連絡",
-          notes: existing?.notes || "",
-          source: "OpenStreetMap"
-        });
-      }
-      const byId = new Map(leads.map(x => [x.id, x]));
-      found.forEach(item => {
-        const old = byId.get(item.id);
-        byId.set(item.id, old ? { ...old, ...item, contactUrl: old.contactUrl || item.contactUrl, status: old.status || item.status, notes: old.notes || item.notes } : item);
-      });
-      leads = [...byId.values()];
-      lastIds = found.map(x => x.id);
-      saveLeads();
-      renderTable(lastIds);
-      setMessage(`${found.length}件の候補が見つかりました（名称のある施設のみ）。\n見つからないお店や公式サイト未登録のお店もあります。連続検索は避けてください。`);
-      if (!found.length) setMessage("候補が見つかりませんでした。業種を増やす、半径を広げる、中心地点を変えるなどを試してください。");
-    } catch (err) {
-      setMessage("検索に失敗しました: " + err.message + "\n公開APIが混雑している可能性があります。少し時間を空けて再試行してください。");
-    } finally { $("searchBtn").disabled = false; }
-  }
-  function renderTable(ids = null) {
-    const shown = ids ? leads.filter(x => ids.includes(x.id)) : leads;
-    $("count").textContent = shown.length + " 件";
-    if (!shown.length) {
-      $("results").innerHTML = '<div class="empty">候補がありません。条件を選んで検索してください。</div>';
-      return;
-    }
-    const rows = shown.map(item => `<tr data-id="${esc(item.id)}">
-      <td><div class="name">${esc(item.name)}</div><div class="help">${esc(item.category)}</div>${item.phone ? `<div>${esc(item.phone)}</div>` : ""}</td>
-      <td>${esc(item.address)}</td>
-      <td>${item.website ? `<a href="${esc(item.website)}" target="_blank" rel="noopener noreferrer">公式サイト</a>` : '<span class="help">未登録</span>'}</td>
-      <td><input class="smallinput contact-input" type="url" placeholder="https://…" aria-label="${esc(item.name)}のお問い合わせURL" value="${esc(item.contactUrl)}"></td>
-      <td><select class="statusselect status-input" aria-label="${esc(item.name)}の対応状況">
-        ${["未連絡","連絡済み","返信あり","対象外","受注"].map(s => `<option${item.status===s?" selected":""}>${s}</option>`).join("")}
-      </select></td>
-      <td><input class="smallinput notes-input" type="text" placeholder="メモ" aria-label="${esc(item.name)}のメモ" value="${esc(item.notes || "")}"></td>
-    </tr>`).join("");
-    $("results").innerHTML = `<table><thead><tr><th>店舗名・業種</th><th>住所</th><th>公式サイト</th><th>お問い合わせURL（手入力）</th><th>対応状況</th><th>メモ</th></tr></thead><tbody>${rows}</tbody></table>`;
-    $("results").querySelectorAll("tbody tr").forEach(row => {
-      const id = row.dataset.id;
-      row.querySelector(".contact-input").addEventListener("change", e => updateLead(id, { contactUrl: normUrl(e.target.value) }));
-      row.querySelector(".status-input").addEventListener("change", e => updateLead(id, { status: e.target.value }));
-      row.querySelector(".notes-input").addEventListener("change", e => updateLead(id, { notes: e.target.value.trim() }));
-    });
-  }
-  function updateLead(id, changes) {
-    leads = leads.map(x => x.id === id ? { ...x, ...changes } : x);
-    saveLeads();
-  }
-  function exportCsv() {
-    const shown = lastIds.length ? leads.filter(x => lastIds.includes(x.id)) : leads;
-    if (!shown.length) { setMessage("CSVに出力する候補がありません。先に検索してください。"); return; }
-    const columns = [
-      ["店舗名","name"], ["業種","category"], ["住所","address"], ["公式サイトURL","website"],
-      ["電話番号","phone"], ["お問い合わせURL","contactUrl"], ["対応状況","status"], ["メモ","notes"],
-      ["緯度","lat"], ["経度","lon"], ["データ元","source"], ["OSM ID","id"]
-    ];
-    const csvCell = value => {
-      let s = String(value ?? "");
-      // Reduce spreadsheet formula injection risk for user-facing exports.
-      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
-      return '"' + s.replace(/"/g, '""') + '"';
-    };
-    const csv = "\uFEFF" + [columns.map(c => csvCell(c[0])).join(","), ...shown.map(x => columns.map(c => csvCell(x[c[1]])).join(","))].join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "営業候補リスト.csv"; document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-  }
-  function clearData() {
-    if (!confirm("保存した営業候補・問い合わせURL・対応状況をすべて削除します。この操作は取り消せません。続けますか？")) return;
-    leads = []; lastIds = []; saveLeads(); renderTable([]);
-    setMessage("保存データを削除しました。");
-  }
+const $=id=>document.getElementById(id);
+const STORE='leadFinderLeadsV2';
+let leads=[];
+try { leads=JSON.parse(localStorage.getItem(STORE)||'[]'); if(!Array.isArray(leads)) leads=[]; } catch(e){leads=[]}
+let center={lat:34.6268,lon:135.6009}, markers=[];
+const map=L.map('map').setView([center.lat,center.lon],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+let centerMarker=L.marker([center.lat,center.lon],{draggable:true}).addTo(map).bindPopup('検索の中心');
+centerMarker.on('dragend',e=>setCenter(e.target.getLatLng().lat,e.target.getLatLng().lng,false));
+map.on('click',e=>setCenter(e.latlng.lat,e.latlng.lng,true));
+function setCenter(lat,lon,move=true){center={lat:Number(lat),lon:Number(lon)};$('centerLat').value=center.lat.toFixed(6);$('centerLon').value=center.lon.toFixed(6);centerMarker.setLatLng([center.lat,center.lon]);if(move)map.setView([center.lat,center.lon],12)}
+$('centerLat').addEventListener('change',()=>setCenter($('centerLat').value,$('centerLon').value));
+$('centerLon').addEventListener('change',()=>setCenter($('centerLat').value,$('centerLon').value));
+function persist(){localStorage.setItem(STORE,JSON.stringify(leads));render()}
+function normalizeUrl(v){return (v||'').trim()}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function validUrl(v){return /^https?:\/\//i.test(v||'')}
+function render(){
+ const q=$('filterText').value.trim().toLowerCase(), st=$('filterStatus').value, src=$('filterSource').value;
+ let data=leads.filter(x=>(!q||[x.name,x.address,x.notes].join(' ').toLowerCase().includes(q))&&(!st||x.status===st)&&(!src||x.source===src));
+ if($('sort').value==='name')data.sort((a,b)=>a.name.localeCompare(b.name,'ja'));else data.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+ $('countAll').textContent='登録件数：'+leads.length;$('countManual').textContent='手動登録：'+leads.filter(x=>x.source==='手動登録').length;$('countSearch').textContent='検索登録：'+leads.filter(x=>x.source==='地図検索').length;
+ $('rows').innerHTML=data.map(x=>`<tr><td><strong>${esc(x.name)}</strong><div class="sub">${esc(x.category||'')}</div><div class="sub">${esc(x.address||'住所未登録')}</div><div class="sub"><span class="tag">${esc(x.source||'手動登録')}</span></div></td><td>${x.website&&validUrl(x.website)?`<div><a href="${esc(x.website)}" target="_blank" rel="noopener">公式サイト</a></div>`:''}${x.contact&&validUrl(x.contact)?`<div><a href="${esc(x.contact)}" target="_blank" rel="noopener">お問い合わせ</a></div>`:''}${x.phone?`<div>${esc(x.phone)}</div>`:''}${x.email?`<div>${esc(x.email)}</div>`:''}${!x.website&&!x.contact&&!x.phone&&!x.email?'<span class="muted">未登録</span>':''}</td><td><span class="tag">${esc(x.status||'未連絡')}</span>${x.notes?`<div class="sub">${esc(x.notes)}</div>`:''}</td><td><div class="rowbuttons"><button class="small" data-edit="${esc(x.id)}">編集</button><button class="small danger" data-delete="${esc(x.id)}">削除</button></div></td></tr>`).join('');
+ if(!data.length)$('rows').innerHTML='<tr><td colspan="4" class="muted">該当する営業先がありません。</td></tr>';
+}
+['filterText','filterStatus','filterSource','sort'].forEach(id=>$(id).addEventListener('input',render));
+function resetForm(){ $('leadForm').reset();$('editId').value='';$('editorTitle').textContent='② 営業先を手動で追加';$('saveLead').textContent='営業先を追加';$('cancelEdit').classList.add('hidden');$('source').value='手動登録';}
+$('resetForm').addEventListener('click',resetForm);$('cancelEdit').addEventListener('click',resetForm);
+$('leadForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const id=$('editId').value;
+ const existing=id?leads.find(x=>x.id===id):null;
+ const item={id:id||('lead-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)),name:$('name').value.trim(),category:$('category').value,status:$('status').value,address:$('address').value.trim(),website:normalizeUrl($('website').value),contact:normalizeUrl($('contact').value),phone:$('phone').value.trim(),source:existing?existing.source:$('source').value,email:$('email').value.trim(),notes:$('notes').value.trim(),createdAt:existing?.createdAt||Date.now(),updatedAt:Date.now()};
+ if(!item.name){alert('営業先名を入力してください。');return}
+ if(id){leads=leads.map(x=>x.id===id?item:x);$('notice').textContent='営業先を更新しました。'}else{leads.push(item);$('notice').textContent='営業先を追加しました。'}
+ persist();resetForm();
+});
+$('rows').addEventListener('click',e=>{
+ const edit=e.target.closest('[data-edit]');const del=e.target.closest('[data-delete]');
+ if(edit){const x=leads.find(v=>v.id===edit.dataset.edit);if(!x)return;
+ $('editId').value=x.id;['name','category','status','address','website','contact','phone','source','email','notes'].forEach(k=>$(k).value=x[k]|| (k==='source'?'手動登録':''));
+ $('editorTitle').textContent='② 営業先を編集';$('saveLead').textContent='変更を保存';$('cancelEdit').classList.remove('hidden');$('editor').scrollIntoView({behavior:'smooth',block:'start'});
+ }
+ if(del){const x=leads.find(v=>v.id===del.dataset.delete);if(!x)return;if(confirm(`「${x.name}」を削除しますか？`)){leads=leads.filter(v=>v.id!==x.id);persist();if($('editId').value===x.id)resetForm();}}
+});
+$('locate').addEventListener('click',async()=>{
+ const q=$('place').value.trim();if(!q){alert('場所名または住所を入力してください。');return}
+ $('notice').textContent='場所を検索中…';
+ try{const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);const r=await fetch(u,{headers:{'Accept-Language':'ja'}});if(!r.ok)throw Error('検索サービスに接続できません');const d=await r.json();if(!d.length)throw Error('場所が見つかりませんでした');setCenter(Number(d[0].lat),Number(d[0].lon));map.setZoom(13);$('notice').textContent='検索中心を設定しました：'+d[0].display_name;}catch(e){$('notice').textContent='場所の検索に失敗しました。地図をクリックして中心を指定してください。 ('+e.message+')'}
+});
+function categories(){
+ const selected=[...document.querySelectorAll('.checks input:checked')].map(x=>x.value), tags=[];
+ if(selected.includes('food'))tags.push('amenity~"^(restaurant|cafe|fast_food|bar|pub|food_court)$"');
+ if(selected.includes('beauty'))tags.push('shop~"^(hairdresser|beauty|barber)$"');
+ if(selected.includes('health'))tags.push('healthcare','amenity~"^(clinic|doctors|dentist|pharmacy|physiotherapist)$"');
+ if(selected.includes('shop'))tags.push('shop');
+ return tags;
+}
+$('search').addEventListener('click',async()=>{
+ center={lat:Number($('centerLat').value),lon:Number($('centerLon').value)};
+ if(!Number.isFinite(center.lat)||!Number.isFinite(center.lon)){alert('緯度・経度を確認してください。');return}
+ const radius=Number($('radius').value)*1000, cats=categories();if(!cats.length){alert('業種を1つ以上選択してください。');return}
+ $('search').disabled=true;$('notice').textContent='営業先を検索中です。少し時間がかかる場合があります…';
+ try{
+ const filters=cats.map(c=>c.startsWith('amenity~')||c.startsWith('shop~')||c==='shop'||c==='healthcare'?`node(around:${radius},${center.lat},${center.lon})[${c}];way(around:${radius},${center.lat},${center.lon})[${c}];`:'').join('');
+ const query='[out:json][timeout:25];('+filters+');out center tags;';
+ const endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];let res=null,err;
+ for(const endpoint of endpoints){try{const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)});if(!r.ok)throw Error('HTTP '+r.status);res=await r.json();break}catch(e){err=e}}
+ if(!res)throw err||Error('検索サービスに接続できません');
+ let added=0,skipped=0;
+ for(const el of res.elements||[]){
+ const t=el.tags||{},name=t.name||t['name:ja'];if(!name)continue;
+ const lat=el.lat??el.center?.lat,lon=el.lon??el.center?.lon;
+ const addr=[t['addr:postcode'],t['addr:province'],t['addr:city'],t['addr:town'],t['addr:suburb'],t['addr:street'],t['addr:housenumber']].filter(Boolean).join(' ');
+ const website=t.website||t['contact:website']||'',phone=t.phone||t['contact:phone']||'';
+ const dupe=leads.some(x=>(x.osmId&&x.osmId===el.type+'/'+el.id)||((x.name||'').trim().toLowerCase()===name.trim().toLowerCase()&&x.address&&addr&&x.address===addr));
+ if(dupe){skipped++;continue}
+ const catsText=t.amenity||t.shop||t.healthcare||'その他';
+ const category=/restaurant|cafe|fast_food|bar|pub|food_court/.test(catsText)?'飲食店・カフェ':/hairdresser|beauty|barber/.test(catsText)?'美容・理容':/clinic|doctor|dentist|pharmacy|physiotherapist|healthcare/.test(catsText)?'医療・整体':'その他店舗';
+ leads.push({id:'osm-'+el.type+'-'+el.id,osmId:el.type+'/'+el.id,name,category,status:'未連絡',address:addr,website,contact:'',phone,source:'地図検索',email:'',notes:'',createdAt:Date.now()+added,updatedAt:Date.now(),lat,lon});added++;
+ }
+ persist();$('notice').textContent=`検索完了：${added}件を追加、${skipped}件は重複のためスキップ。手動登録済みの営業先は保持されています。`;
+ if(added===0&&skipped===0)$('notice').textContent='検索結果がありませんでした。業種や検索エリアを変えてお試しください。';
+ }catch(e){$('notice').textContent='検索に失敗しました。時間をおいて再試行してください。 ('+e.message+')'}
+ finally{$('search').disabled=false}
+});
+function csv(){
+ const headers=['営業先名','業種','営業状況','住所','公式サイトURL','お問い合わせページURL','電話番号','登録元','メール・SNSなど','メモ'];
+ const keys=['name','category','status','address','website','contact','phone','source','email','notes'];
+ const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+ const lines=[headers,...leads.map(x=>keys.map(k=>x[k]||''))].map(row=>row.map(quote).join(',')).join('\r\n');
+ const blob=new Blob(['\ufeff'+lines],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='営業先リスト.csv';a.click();URL.revokeObjectURL(url);
+}
+$('export').addEventListener('click',csv);$('exportBottom').addEventListener('click',csv);
+$('clearAll').addEventListener('click',()=>{if(confirm('登録した営業先をすべて削除します。この操作は元に戻せません。CSVを書き出してから行うことをおすすめします。')){leads=[];persist();resetForm();$('notice').textContent='営業先リストを全削除しました。'}});
+render();
 })();
 </script>
-</body>
-</html>
+</body></html>
